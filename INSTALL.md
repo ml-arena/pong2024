@@ -145,6 +145,4 @@ Note: While Colab is great for development and testing, you'll need to ensure yo
    - Reduce batch size in training scripts
 
 For additional help:
-- Check our [FAQ](docs/faq.md)
-- Join our [Discord server](https://discord.gg/ml-arena)
 - Open an issue on GitHub

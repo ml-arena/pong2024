@@ -85,7 +85,6 @@ ml-arena-pong2024/
 
 ## 💬 Community
 
-- [Discord Server](https://discord.gg/ml-arena)
 - [GitHub Discussions](https://github.com/ml-arena/pong2024/discussions)
 
 ## 📊 Leaderboard
