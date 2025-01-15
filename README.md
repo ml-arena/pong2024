@@ -7,6 +7,8 @@ Welcome to ML Arena Pong 2024, a multiplayer reinforcement learning competition 
 - [Competition Page](https://ml-arena.com/viewcompetition/3)
 - [PettingZoo Pong Environment](https://pettingzoo.farama.org/environments/atari/pong/)
 - [ML Arena Platform](https://ml-arena.com)
+- [Installation Guide](INSTALL.md)
+- [Google Colab Starter](https://colab.research.google.com/drive/ml-arena-pong2024-starter)
 
 ## 🎮 Competition Overview
 
@@ -47,57 +49,13 @@ ml-arena-pong2024/
 
 ## 🚀 Getting Started
 
-### Installation
+1. Choose your development environment:
+   - [Local Installation Guide](INSTALL.md)
+   - [Google Colab Notebook](https://colab.research.google.com/drive/ml-arena-pong2024-starter)
 
-```bash
-# Create and activate environment
-conda create -n "ml-arena-pong" python=3.10
-conda activate ml-arena-pong
+2. Check out the [Python Starter Kit](kit/README.md) for implementation examples
 
-# Clone repository
-git clone https://github.com/ml-arena/pong2024.git
-cd pong2024
-
-# Install package and dependencies
-pip install -e .
-pip install "pettingzoo[atari]"  # Install PettingZoo with Atari support
-```
-
-### Verify Installation
-
-```bash
-# Run a test match between two random agents
-ml-arena-pong examples/random_agent.py examples/random_agent.py --output replay.json
-
-# Visualize the replay
-ml-arena-pong-vis replay.json
-```
-
-## 🛠 Python Starter Kit
-
-The Python starter kit provides everything you need to get started:
-
-- Basic agent implementation
-- Environment interaction examples
-- Local testing setup
-- Support for PyTorch, JAX, or TensorFlow
-
-Check out [kit/README.md](kit/README.md) for detailed instructions.
-
-## 📊 Local Evaluation
-
-Test your agent locally:
-
-```bash
-# Run a single match
-ml-arena-pong path/to/your/agent.py examples/random_agent.py
-
-# Run multiple evaluation matches
-ml-arena-pong-evaluate path/to/your/agent.py --num-games 100 --save-stats
-
-# Profile agent performance
-ml-arena-pong-profile path/to/your/agent.py --timeout 100
-```
+3. Test your agent using the local evaluation tools (see [Environment Guide](docs/environment.md))
 
 ## 📝 Competition Rules
 
