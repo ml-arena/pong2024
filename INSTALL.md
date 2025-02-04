@@ -2,11 +2,11 @@
 
 There are several ways to set up your development environment for the ML Arena Pong 2024 competition:
 
-1. [Docker Installation](#docker-installation) (Recommended)
+1. [Docker Installation](#docker-installation)
 2. [Local Installation](#local-installation)
 3. [Google Colab](#google-colab)
 
-## Docker Installation (Recommended)
+## Docker Installation
 
 The Docker setup provides a consistent environment that matches the competition runtime.
 
@@ -43,7 +43,7 @@ docker-compose run --rm ml-arena-pong python examples/random_agent.py examples/r
 ## Local Installation
 
 ### Prerequisites
-- Python 3.9
+- Python 3.10
 - pip or conda package manager
 - C++ build tools (for PettingZoo installation)
 
@@ -52,8 +52,8 @@ docker-compose run --rm ml-arena-pong python examples/random_agent.py examples/r
 #### Ubuntu/Debian
 ```bash
 sudo apt-get update && sudo apt-get install -y \
-    python3.9 \
-    python3.9-dev \
+    python3.10 \
+    python3.10-dev \
     python3-pip \
     swig \
     python3-pygame \
@@ -64,7 +64,7 @@ sudo apt-get update && sudo apt-get install -y \
 
 #### macOS
 ```bash
-brew install python@3.9 swig sdl2
+brew install python@3.10 swig sdl2
 ```
 
 #### Windows
@@ -77,11 +77,11 @@ brew install python@3.9 swig sdl2
 1. Create a virtual environment:
 ```bash
 # Using venv
-python3.9 -m venv venv
+python3.10 -m venv venv
 source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 
 # Or using conda
-conda create -n ml-arena-pong python=3.9
+conda create -n ml-arena-pong python=3.10
 conda activate ml-arena-pong
 ```
 
