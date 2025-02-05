@@ -196,13 +196,14 @@ class heuristicAgent:
 
 env = make_env()
 opponent_agents = [RandomAgent]
+opponent_probs = [1] 
 
-results = train_parallel_environments(
+results = train_sequential(
     make_env=make_env,
     main_agent_class=QLearningAgent,
     opponent_classes=opponent_agents,
-    n_envs=4,
-    n_total_episodes=1000,
+    opponent_probs=opponent_probs,
+    n_total_episodes=100,
     eval_frequency=10,
-    max_cycles=10
+    max_cycles=5000 
 )
