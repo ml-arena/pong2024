@@ -2,43 +2,13 @@
 
 There are several ways to set up your development environment for the ML Arena Pong 2024 competition:
 
-1. [Docker Installation](#docker-installation)
+1. [Docker Installation](#docker-installation) (comming soon)
 2. [Local Installation](#local-installation)
 3. [Google Colab](#google-colab)
 
 ## Docker Installation
 
-The Docker setup provides a consistent environment that matches the competition runtime.
-
-### Prerequisites
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/)
-
-### Steps
-
-1. Clone the repository:
-```bash
-git clone https://github.com/ml-arena/pong2024.git
-cd pong2024
-```
-
-2. Build and run using Docker Compose:
-```bash
-docker-compose up --build
-```
-
-This will:
-- Set up the PettingZoo environment with all dependencies
-- Install required Python packages
-- Configure the Atari ROM
-- Mount your local directory for development
-
-### Verify Docker Installation
-
-```bash
-# Run a test match
-docker-compose run --rm ml-arena-pong python examples/random_agent.py examples/random_agent.py
-```
+(comming soon)
 
 ## Local Installation
 
@@ -80,69 +50,33 @@ brew install python@3.10 swig sdl2
 python3.10 -m venv venv
 source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 
-# Or using conda
-conda create -n ml-arena-pong python=3.10
-conda activate ml-arena-pong
 ```
 
 2. Install Python dependencies:
 ```bash
-# Install Poetry
-pip install poetry
+# Install Python packages
+pip install "pettingzoo[atari]==1.24.3" gymnasium[atari] numpy pygame
 
-# Install project dependencies
-poetry install
-
-# Install PettingZoo with Atari support
-poetry add "pettingzoo[classic,atari]==1.24.3"
-
-# Install AutoROM and accept license
-poetry run AutoROM --accept-license
+# Install and setup AutoROM
+pip install autorom
+AutoROM --accept-license
 ```
 
-### Verify Local Installation
-
+3. Install pong2024 pkg:
 ```bash
-# Run a test match
-python examples/random_agent.py examples/random_agent.py
+# Install Poetry
+pip install git+https://github.com/ml-arena/pong2024.git
 
-# Run the visualization tool
-python -m ml_arena_pong.vis replay.json
 ```
 
 ## Google Colab
 
 For those who prefer a cloud-based setup or have installation issues, we provide a Google Colab notebook:
 
-[ML Arena Pong 2024 Starter Notebook](https://colab.research.google.com/drive/ml-arena-pong2024-starter)
+[ML Arena Pong 2024 Starter Notebook](https://colab.research.google.com/github/ml-arena/pong2024/blob/main/notebook/getting_started.ipynb)
 
 The notebook includes:
 - Pre-installed dependencies
 - Example agent implementation
 - Training and evaluation code
 - Visualization tools
-
-Note: While Colab is great for development and testing, you'll need to ensure your agent works in the competition runtime environment before submission.
-
-## Troubleshooting
-
-### Common Issues
-
-1. **PettingZoo Installation Fails**
-   - Ensure you have the required system dependencies
-   - Try installing with `pip install --no-cache-dir "pettingzoo[atari]"`
-
-2. **ROM Loading Error**
-   - Run `AutoROM --accept-license` to download required ROMs
-   - Check ROM path environment variable: `export ROM_PATH=/path/to/roms`
-
-3. **SDL2 Error**
-   - Install SDL2 development libraries for your system
-   - For Ubuntu: `sudo apt-get install libsdl2-dev`
-
-4. **Memory/GPU Issues**
-   - Try running with CPU only: `export CUDA_VISIBLE_DEVICES=`
-   - Reduce batch size in training scripts
-
-For additional help:
-- Open an issue on GitHub
