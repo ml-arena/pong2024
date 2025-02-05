@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="pong2024",
-    version="0.1.0",
+    version="0.1.1",
     description="ML-Arena: 2-Player Pong 2024 Competition Environment",
     author="ML-Arena Team",
     packages=find_packages(),
