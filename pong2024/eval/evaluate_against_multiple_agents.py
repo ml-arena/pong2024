@@ -31,43 +31,43 @@ def evaluate_against_multiple_agents(
     opponent_classes: List[Type[Agent]],
     n_games_per_matchup: int = 10,
     max_cycles: int = 1000,
+    n_verbose_game: int = 10,
     seed: int = None
 ) -> Dict:
     """
     Evaluate one main agent against multiple opponent agents.
-    
-    Args:
-        env: The Pong environment
-        main_agent_class: The primary agent class to evaluate
-        opponent_classes: List of opponent agent classes to evaluate against
-        n_games_per_matchup: Number of games to play per matchup
-        max_cycles: Maximum number of cycles per game
-        seed: Random seed for reproducibility
-    
-    Returns:
-        Dictionary containing results for all matchups
     """
     all_results = {
         'matchups': [],
         'summary': {
             'main_agent_overall_winrate': 0,
+            'main_agent_overall_drawrate': 0,
+            'main_agent_overall_loserate': 0,
             'main_agent_average_score': 0,
             'opponent_performance': []
         }
     }
     
     total_wins = 0
+    total_draws = 0
+    total_losses = 0
     total_games = 0
     total_score = 0
     
+    print(f"\nStarting evaluation of {main_agent_class.__name__} against {len(opponent_classes)} opponents")
+    print("-" * 80)
+    
     # Evaluate against each opponent
     for idx, opponent_class in enumerate(opponent_classes, 1):
+        print(f"\nTesting against Opponent {idx}/{len(opponent_classes)}: {opponent_class.__name__}")
+        
         results = evaluate_agents(
             env=env,
             agent1_class=main_agent_class,
             agent2_class=opponent_class,
             n_games=n_games_per_matchup,
             max_cycles=max_cycles,
+            n_verbose_game=n_verbose_game,
             seed=seed
         )
         
@@ -77,6 +77,8 @@ def evaluate_against_multiple_agents(
             'opponent_class': opponent_class.__name__,
             'n_games': n_games_per_matchup,
             'main_agent_winrate': results['summary']['win_rates']['agent1'],
+            'main_agent_drawrate': results['summary']['draw_rates'],
+            'main_agent_loserate': results['summary']['win_rates']['agent2'],
             'main_agent_avg_score': results['summary']['average_scores']['agent1'],
             'opponent_avg_score': results['summary']['average_scores']['agent2'],
             'detailed_games': results['games']
@@ -86,6 +88,8 @@ def evaluate_against_multiple_agents(
         
         # Update overall statistics
         total_wins += sum(1 for game in results['games'] if game['winner'] == 'agent1')
+        total_draws += sum(1 for game in results['games'] if game['winner'] == 'draw')
+        total_losses += sum(1 for game in results['games'] if game['winner'] == 'agent2')
         total_games += n_games_per_matchup
         total_score += results['summary']['total_scores']['agent1']
         
@@ -94,11 +98,23 @@ def evaluate_against_multiple_agents(
             'opponent_id': idx,
             'opponent_class': opponent_class.__name__,
             'winrate_vs_main': results['summary']['win_rates']['agent2'],
+            'drawrate': results['summary']['draw_rates'],
             'avg_score': results['summary']['average_scores']['agent2']
         })
+        
+        # Print matchup summary
+        print(f"\nMatchup Summary vs {opponent_class.__name__}:")
+        print(f"Wins: {matchup_summary['main_agent_winrate'] * n_games_per_matchup:.0f}")
+        print(f"Draws: {matchup_summary['main_agent_drawrate'] * n_games_per_matchup:.0f}")
+        print(f"Losses: {matchup_summary['main_agent_loserate'] * n_games_per_matchup:.0f}")
+        print(f"Win Rate: {matchup_summary['main_agent_winrate']:.2%}")
+        print(f"Draw Rate: {matchup_summary['main_agent_drawrate']:.2%}")
+        print(f"Loss Rate: {matchup_summary['main_agent_loserate']:.2%}")
     
     # Calculate overall statistics
     all_results['summary']['main_agent_overall_winrate'] = total_wins / total_games
+    all_results['summary']['main_agent_overall_drawrate'] = total_draws / total_games
+    all_results['summary']['main_agent_overall_loserate'] = total_losses / total_games
     all_results['summary']['main_agent_average_score'] = total_score / total_games
     
     return all_results

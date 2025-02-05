@@ -105,6 +105,7 @@ def evaluate_agents(
     agent2_class: Type[Agent],
     n_games: int = 10,
     max_cycles: int = 1000,
+    n_verbose_game: int = 10,
     seed: int = None
 ) -> Dict:
     """
@@ -122,6 +123,9 @@ def evaluate_agents(
     game_history = []
     
     for game in range(n_games):
+        if (game + 1) % n_verbose_game == 0:
+            print(f"Playing game {game + 1}/{n_games}")
+            
         env.reset()
         
         # Randomly assign agents to player roles for this game
@@ -143,30 +147,30 @@ def evaluate_agents(
         game_active = True
         
         # Game loop following AEC pattern
-        while game_active and step_count < max_cycles:
-            for agent_id in env.agent_iter():
-                observation, reward, termination, truncation, info = env.last()
-                agent, agent_name = agent_mapping[agent_id]
-                game_rewards[agent_name] += reward
+        for agent_id in env.agent_iter():
+            if step_count >= max_cycles:
+                game_active = False
+                break
                 
-                if termination or truncation:
-                    action = None
-                    game_active = False
-                else:
-                    action = agent.choose_action(
-                        observation, reward, termination, truncation, info
-                    )
-                
-                env.step(action)
-                step_count += 1
-                
-                if not game_active:
-                    break
+            observation, reward, termination, truncation, info = env.last()
+            agent, agent_name = agent_mapping[agent_id]
+            game_rewards[agent_name] += reward
+            
+            if termination or truncation:
+                action = None
+                game_active = False
+            else:
+                action = agent.choose_action(
+                    observation, reward, termination, truncation, info
+                )
+            
+            env.step(action)
+            step_count += 1
             
             if not game_active:
                 break
         
-        # Record game results
+        # Record game results with explicit winner determination
         game_result = {
             "game_number": game + 1,
             "agent1_role": agent1.player_name,
@@ -174,9 +178,15 @@ def evaluate_agents(
             "agent1_score": game_rewards["agent1"],
             "agent2_score": game_rewards["agent2"],
             "steps": step_count,
-            "winner": "agent1" if game_rewards["agent1"] > game_rewards["agent2"] else 
-                     "agent2" if game_rewards["agent2"] > game_rewards["agent1"] else "tie"
+            "winner": "draw"  # Default to draw
         }
+        
+        # Determine winner
+        if game_rewards["agent1"] > game_rewards["agent2"]:
+            game_result["winner"] = "agent1"
+        elif game_rewards["agent2"] > game_rewards["agent1"]:
+            game_result["winner"] = "agent2"
+            
         game_history.append(game_result)
     
     env.close()
@@ -185,14 +195,20 @@ def evaluate_agents(
     games_df = pd.DataFrame(game_history)
     
     # Calculate summary statistics
+    total_games = len(games_df)
+    agent1_wins = (games_df['winner'] == 'agent1').sum()
+    agent2_wins = (games_df['winner'] == 'agent2').sum()
+    draws = (games_df['winner'] == 'draw').sum()
+    
     results = {
         "games": games_df.to_dict('records'),
         "summary": {
-            "n_games": n_games,
+            "n_games": total_games,
             "win_rates": {
-                "agent1": (games_df['winner'] == 'agent1').mean(),
-                "agent2": (games_df['winner'] == 'agent2').mean()
+                "agent1": agent1_wins / total_games,
+                "agent2": agent2_wins / total_games
             },
+            "draw_rates": draws / total_games,
             "average_scores": {
                 "agent1": games_df['agent1_score'].mean(),
                 "agent2": games_df['agent2_score'].mean()
