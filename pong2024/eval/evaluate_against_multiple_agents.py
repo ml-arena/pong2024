@@ -13,7 +13,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from pong2024.eval import evaluate_agents
+from pong2024.eval.evaluate_agents import evaluate_agents
 
 class Agent:
     """Base Agent class for Pong competition."""
