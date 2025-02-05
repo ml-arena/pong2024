@@ -86,39 +86,54 @@ def extract_distances(observation):
     
     return dist_to_left, dist_to_right, angle_to_left, angle_to_right
 
-def simple_preprocess_image(observation, target_size=(84, 84), flip=False):
+def simplified_preprocess_image(observation, target_size=(28, 28), flip=False):
     """
-    Preprocess the observation image with various transformations.
+    Simplified preprocessing to get binary values (0 and 1) from grayscale.
     
     Args:
         observation: Raw observation frame (210, 160, 3)
-        target_size: Desired output size (height, width), default (84, 84)
-        flip: Whether to flip the image horizontally (useful for player 2 perspective)
+        target_size: Desired output size (height, width)
+        flip: Whether to flip the image horizontally
     
     Returns:
-        Preprocessed observation as a 2D array with values in [0, 1]
+        Binary observation as a 2D array with values strictly in {0, 1}
     """
     # Extract play area (remove score area)
     y_bottom, y_top = 34, 194
-    play_area = observation[y_bottom:y_top, :, 0]
+    play_area = observation[y_bottom:y_top, :, :]
     
-    # Resize to target dimensions
-    resized = cv2.resize(play_area, target_size, interpolation=cv2.INTER_AREA)
+    # Convert to grayscale
+    gray = cv2.cvtColor(play_area, cv2.COLOR_RGB2GRAY)
     
-    # Flip horizontally if requested (for player 2 perspective)
+    # Direct binary conversion: background is pure black (0), objects have intensity
+    binary = (gray - 87 > 0).astype(np.uint8)
+    
+    def max_pool(img, kernel_size):
+        """
+        Perform max pooling with specified kernel size
+        """
+        h, w = img.shape
+        pool_h, pool_w = kernel_size
+        
+        # Calculate output dimensions
+        out_h = h // pool_h
+        out_w = w // pool_w
+        
+        # Reshape and take max
+        reshaped = img[:out_h*pool_h, :out_w*pool_w]  # trim if needed
+        reshaped = reshaped.reshape(out_h, pool_h, out_w, pool_w)
+        return reshaped.max(axis=(1,3))
+
+    # In the preprocessing function:
+    h_factor = binary.shape[0] // target_size[0]
+    w_factor = binary.shape[1] // target_size[1]
+    resized = max_pool(binary, (h_factor, w_factor))
+    
+    # Flip if needed (for player 2 perspective)
     if flip:
         resized = cv2.flip(resized, 1)
     
-    # Apply Gaussian blur to reduce noise
-    smoothed = gaussian_filter(resized, sigma=0.5)
-    
-    # Normalize pixel values to [0, 1]
-    normalized = smoothed / 255.0
-    
-    # Binary thresholding to separate objects
-    binary = (normalized > 0.5).astype(np.float32)
-    
-    return binary
+    return resized
 
 def extract_game_state(observation):
     """
