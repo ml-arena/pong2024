@@ -12,8 +12,6 @@ setup(
         "gymnasium>=0.29.1",
         "pandas>=1.3.0",
         "matplotlib>=3.4.0",
-        "jupyter>=1.0.0",
-        "ipykernel>=6.0.0",
     ],
     python_requires=">=3.10",
 )
