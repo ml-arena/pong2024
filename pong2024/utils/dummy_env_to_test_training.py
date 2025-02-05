@@ -202,6 +202,7 @@ results = train_parallel_environments(
     main_agent_class=QLearningAgent,
     opponent_classes=opponent_agents,
     n_envs=4,
-    n_episodes_per_opponent=1000,
-    eval_frequency=100
+    n_total_episodes=1000,
+    eval_frequency=10,
+    max_cycles=10
 )

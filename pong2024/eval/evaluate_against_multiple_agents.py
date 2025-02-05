@@ -24,6 +24,8 @@ class Agent:
     def choose_action(self, observation, reward=0.0, terminated=False, truncated=False, info=None):
         """Choose an action based on the current game state."""
         return self.env.action_space(self.player_name).sample()
+    def learn(self):
+        pass
 
 def evaluate_against_multiple_agents(
     env,

@@ -37,11 +37,15 @@ from typing import Type, List, Dict
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 
-def train_parallel_environments(
+import numpy as np
+import random
+import time
+from typing import Type, List, Dict
+
+def train_sequential(
     make_env,
     main_agent_class: Type[Agent],
     opponent_classes: List[Type[Agent]],
-    n_envs: int = 16,
     n_total_episodes: int = 10000,
     eval_frequency: int = 100,
     max_cycles: int = 3000,
@@ -49,13 +53,12 @@ def train_parallel_environments(
     seed: int = None
 ) -> Dict:
     """
-    Train one main agent against multiple opponent agents simultaneously in parallel environments.
+    Train one main agent against multiple opponent agents sequentially.
     
     Args:
         make_env: Function that creates a new environment instance
         main_agent_class: The primary agent class to train
         opponent_classes: List of opponent agent classes to train against
-        n_envs: Number of parallel environments
         n_total_episodes: Total number of training episodes across all opponents
         eval_frequency: Number of episodes between metric computations
         max_cycles: Maximum number of cycles per episode
@@ -70,12 +73,13 @@ def train_parallel_environments(
         np.random.seed(seed)
         random.seed(seed)
     
-    # Initialize opponent probabilities if not provided
+    # Initialize opponent probabilities
     if opponent_probs is None:
         opponent_probs = [1.0 / len(opponent_classes)] * len(opponent_classes)
-    assert len(opponent_probs) == len(opponent_classes), "Must provide probability for each opponent"
-    assert abs(sum(opponent_probs) - 1.0) < 1e-6, "Probabilities must sum to 1"
+    assert len(opponent_probs) == len(opponent_classes)
+    assert abs(sum(opponent_probs) - 1.0) < 1e-6
     
+    # Initialize training results dictionary
     training_results = {
         'opponents': [{
             'opponent_id': idx,
@@ -83,8 +87,8 @@ def train_parallel_environments(
             'episodes': [],
             'metrics_history': [],
             'win_rate_history': [],
-            'draw_rate_history': [],  # Track draw rates
-            'lose_rate_history': []   # Track lose rates
+            'draw_rate_history': [],
+            'lose_rate_history': []
         } for idx, opponent_class in enumerate(opponent_classes, 1)],
         'summary': {
             'total_episodes': 0,
@@ -92,11 +96,11 @@ def train_parallel_environments(
         }
     }
     
-    # Create environments and agents
-    envs = [make_env() for _ in range(n_envs)]
-    main_agents = [main_agent_class(env) for env in envs]
+    # Create environment and agents
+    env = make_env()
+    main_agent = main_agent_class(env)
     opponent_instances = {
-        opponent_class.__name__: [opponent_class(env) for env in envs]
+        opponent_class.__name__: opponent_class(env)
         for opponent_class in opponent_classes
     }
     
@@ -104,15 +108,15 @@ def train_parallel_environments(
     metrics_window = []
     current_window_start = 0
     
-    def run_environment(
-        env_idx: int,
-        opponent_class: Type[Agent],
-        episode: int
-    ) -> Dict:
-        """Run a single episode in one environment"""
-        env = envs[env_idx]
-        main_agent = main_agents[env_idx]
-        opponent = opponent_instances[opponent_class.__name__][env_idx]
+    def select_opponent() -> Type[Agent]:
+        """Select opponent based on provided probabilities"""
+        return np.random.choice(opponent_classes, p=opponent_probs)
+    
+    # Main training loop
+    for episode in range(n_total_episodes):
+        # Select opponent for this episode
+        opponent_class = select_opponent()
+        opponent = opponent_instances[opponent_class.__name__]
         
         env.reset()
         
@@ -127,6 +131,7 @@ def train_parallel_environments(
             opponent.player_name: (opponent, "opponent")
         }
         
+        # Run single episode
         episode_rewards = {"main_agent": 0, "opponent": 0}
         step_count = 0
         episode_active = True
@@ -152,123 +157,69 @@ def train_parallel_environments(
             if not episode_active or step_count >= max_cycles:
                 break
         
-        # Determine game outcome (win, loss, or draw)
+        # Record episode results
         main_score = episode_rewards["main_agent"]
         opponent_score = episode_rewards["opponent"]
-        is_draw = main_score == opponent_score
-        is_win = main_score > opponent_score
-        is_lose = main_score < opponent_score
-        
-        return {
+        episode_data = {
             "episode": episode + 1,
             "opponent_class": opponent_class.__name__,
             "main_agent_role": main_agent.player_name,
             "main_agent_score": main_score,
             "opponent_score": opponent_score,
             "steps": step_count,
-            "win": is_win,
-            "draw": is_draw,
-            "lose": is_lose
+            "win": main_score > opponent_score,
+            "draw": main_score == opponent_score,
+            "lose": main_score < opponent_score
         }
-    
-    def select_opponent() -> Type[Agent]:
-        """Select opponent based on provided probabilities"""
-        return np.random.choice(opponent_classes, p=opponent_probs)
-    
-    n_batches = (n_total_episodes + n_envs - 1) // n_envs
-    
-    with ThreadPoolExecutor(max_workers=n_envs) as executor:
-        for batch in range(n_batches):
-            batch_start = batch * n_envs
-            batch_size = min(n_envs, n_total_episodes - batch_start)
+        
+        # Store episode data
+        opponent_idx = next(
+            i for i, res in enumerate(training_results['opponents'])
+            if res['opponent_class'] == opponent_class.__name__
+        )
+        training_results['opponents'][opponent_idx]['episodes'].append(episode_data)
+        metrics_window.append(episode_data)
+        
+        # Compute and display metrics periodically
+        if (episode + 1) % eval_frequency == 0 or episode == n_total_episodes - 1:
+            window_episodes = metrics_window[current_window_start:]
+            current_window_start = len(metrics_window)
             
-            # Select different opponents for each environment in the batch
-            batch_opponents = [select_opponent() for _ in range(batch_size)]
-            
-            # Submit batch of episodes to executor
-            futures = [
-                executor.submit(
-                    run_environment,
-                    env_idx,
-                    opponent_class,
-                    batch_start + env_idx
-                )
-                for env_idx, opponent_class in enumerate(batch_opponents)
-            ]
-            
-            # Collect results
-            batch_results = []
-            for future in futures:
-                episode_data = future.result()
-                opponent_idx = next(
-                    i for i, res in enumerate(training_results['opponents'])
-                    if res['opponent_class'] == episode_data['opponent_class']
-                )
-                training_results['opponents'][opponent_idx]['episodes'].append(episode_data)
-                batch_results.append(episode_data)
-            
-            metrics_window.extend(batch_results)
-            
-            # Compute and display metrics periodically
-            current_episode = batch_start + batch_size
-            if current_episode % eval_frequency == 0 or current_episode == n_total_episodes:
-                # Get episodes for the current evaluation window
-                window_episodes = metrics_window[current_window_start:]
-                current_window_start = len(metrics_window)
+            if window_episodes:
+                print(f"\nEpisode {episode + 1}/{n_total_episodes}")
+                print("=" * 50)
                 
-                if window_episodes:
-                    print(f"\nEpisode {current_episode}/{n_total_episodes}")
-                    print("=" * 50)
+                total_games = len(window_episodes)
+                
+                for opponent_results in training_results['opponents']:
+                    recent_episodes = [
+                        ep for ep in window_episodes
+                        if ep['opponent_class'] == opponent_results['opponent_class']
+                    ]
                     
-                    total_games = len(window_episodes)
-                    total_wins = 0
-                    total_draws = 0
-                    
-                    print("\nPer-Opponent Statistics:")
-                    print("-" * 25)
-                    
-                    for opponent_results in training_results['opponents']:
-                        recent_episodes = [
-                            ep for ep in window_episodes
-                            if ep['opponent_class'] == opponent_results['opponent_class']
-                        ]
+                    if recent_episodes:
+                        metrics = {
+                            "episode": episode + 1,
+                            "games": len(recent_episodes),
+                            "win_rate": sum(ep['win'] for ep in recent_episodes) / len(recent_episodes),
+                            "draw_rate": sum(ep['draw'] for ep in recent_episodes) / len(recent_episodes),
+                            "lose_rate": sum(ep['lose'] for ep in recent_episodes) / len(recent_episodes),
+                            "avg_score": sum(ep['main_agent_score'] for ep in recent_episodes) / len(recent_episodes),
+                            "avg_opponent_score": sum(ep['opponent_score'] for ep in recent_episodes) / len(recent_episodes),
+                            "avg_steps": sum(ep['steps'] for ep in recent_episodes) / len(recent_episodes)
+                        }
                         
-                        if recent_episodes:
-                            wins = sum(ep['win'] for ep in recent_episodes)
-                            draws = sum(ep['draw'] for ep in recent_episodes)
-                            losses = sum(ep['lose'] for ep in recent_episodes)
-                            total_wins += wins
-                            total_draws += draws
-                            total_losses = sum(ep['lose'] for ep in recent_episodes)
-                            
-                            metrics = {
-                                "episode": current_episode,
-                                "games": len(recent_episodes),
-                                "win_rate": wins / len(recent_episodes),
-                                "draw_rate": draws / len(recent_episodes),
-                                "lose_rate": losses / len(recent_episodes),
-                                "avg_score": sum(ep['main_agent_score'] for ep in recent_episodes) / len(recent_episodes),
-                                "avg_opponent_score": sum(ep['opponent_score'] for ep in recent_episodes) / len(recent_episodes),
-                                "avg_steps": sum(ep['steps'] for ep in recent_episodes) / len(recent_episodes)
-                            }
-                            opponent_results['metrics_history'].append(metrics)
-                            opponent_results['win_rate_history'].append(metrics['win_rate'])
-                            opponent_results['draw_rate_history'].append(metrics['draw_rate'])
-                            opponent_results['lose_rate_history'].append(metrics['lose_rate'])
-                            
-                            print(f"\n{opponent_results['opponent_class']}:")
-                            print(f"Games Played: {metrics['games']} ({metrics['games']/total_games:.1%} of total)")
-                            print(f"Win Rate: {metrics['win_rate']:.1%}")
-                            print(f"Draw Rate: {metrics['draw_rate']:.1%}")
-                            print(f"Lose Rate: {metrics['lose_rate']:.1%}")
-                            print(f"Average Score: {metrics['avg_score']:.1f} vs {metrics['avg_opponent_score']:.1f}")
-                    
-                    print("\nOverall Statistics:")
-                    print("-" * 20)
-                    print(f"Total Games: {total_games}")
-                    print(f"Overall Win Rate: {total_wins/total_games:.1%}")
-                    print(f"Overall Draw Rate: {total_draws/total_games:.1%}")
-                    print(f"Overall Lose Rate: {total_losses/total_games:.1%}")
+                        opponent_results['metrics_history'].append(metrics)
+                        opponent_results['win_rate_history'].append(metrics['win_rate'])
+                        opponent_results['draw_rate_history'].append(metrics['draw_rate'])
+                        opponent_results['lose_rate_history'].append(metrics['lose_rate'])
+                        
+                        print(f"\n{opponent_results['opponent_class']}:")
+                        print(f"Games: {metrics['games']} ({metrics['games']/total_games:.1%} of total)")
+                        print(f"Win Rate: {metrics['win_rate']:.1%}")
+                        print(f"Draw Rate: {metrics['draw_rate']:.1%}")
+                        print(f"Lose Rate: {metrics['lose_rate']:.1%}")
+                        print(f"Avg Score: {metrics['avg_score']:.1f} vs {metrics['avg_opponent_score']:.1f}")
     
     training_results['summary'].update({
         'total_episodes': n_total_episodes,
@@ -280,13 +231,11 @@ def train_parallel_environments(
         }
     })
     
-    # Print final summary
     print("\nTraining Complete!")
     print("=" * 50)
     print(f"Total Training Time: {training_results['summary']['total_training_time']:.1f} seconds")
     
     return training_results
-
 
 def visualize_training_results(results: dict):
     """
@@ -416,16 +365,20 @@ if __name__ == "__main__":
             """Choose an action based on the current game state."""
             return 1
 
-    env = pong_v3.env()
+    def make_env():
+        return pong_v3.env()
     opponent_agents = [AlwaysLeftAgent, AlwaysRightAgent]
+    opponent_probs = [0.9, 0.1] 
 
     # Train the agent
-    results = train_against_multiple_agents(
-        env=env,
+    results = train_sequential(
+        make_env=make_env,
         main_agent_class=YourAgent,
         opponent_classes=opponent_agents,
-        n_episodes_per_opponent=100,
-        eval_frequency=10
+        opponent_probs=opponent_probs,
+        n_total_episodes=100,
+        eval_frequency=10,
+        max_cycles=5000 
     )
 
     # Visualize the results
