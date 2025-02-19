@@ -113,78 +113,78 @@ def train_sequential(
         return np.random.choice(opponent_classes, p=opponent_probs)
     
     # Main training loop
-for episode in range(n_total_episodes):
-    # Select opponent for this episode
-    opponent_class = select_opponent()
-    opponent = opponent_instances[opponent_class.__name__]
-    
-    env.reset()
-    
-    # Randomly assign roles
-    possible_players = list(env.possible_agents)
-    random.shuffle(possible_players)
-    main_agent.player_name = possible_players[0]
-    opponent.player_name = possible_players[1]
-    
-    agent_mapping = {
-        main_agent.player_name: (main_agent, "main_agent"),
-        opponent.player_name: (opponent, "opponent")
-    }
-    
-    # Run single episode
-    episode_rewards = {"main_agent": 0, "opponent": 0}
-    step_count = 0
-    episode_active = True
-    
-    # Track current state for experience replay
-    current_states = {agent_id: None for agent_id in env.possible_agents}
-    current_actions = {agent_id: None for agent_id in env.possible_agents}
-    
-    for agent_id in env.agent_iter():
-        observation, reward, termination, truncation, info = env.last()
-        agent, agent_name = agent_mapping[agent_id]
-        episode_rewards[agent_name] += reward
+    for episode in range(n_total_episodes):
+        # Select opponent for this episode
+        opponent_class = select_opponent()
+        opponent = opponent_instances[opponent_class.__name__]
         
-        # Get the done flag
-        done = termination or truncation
+        env.reset()
         
-        if agent_name == "main_agent":
-            # Store the previous state-action pair's results if they exist
-            if current_states[agent_id] is not None:
-                main_agent.learn(
-                    state=current_states[agent_id],
-                    action=current_actions[agent_id],
-                    reward=reward,
-                    next_state=observation,
-                    done=done
-                )
+        # Randomly assign roles
+        possible_players = list(env.possible_agents)
+        random.shuffle(possible_players)
+        main_agent.player_name = possible_players[0]
+        opponent.player_name = possible_players[1]
         
-        if done:
-            action = None
-            episode_active = False
-        else:
-            # Choose and store current state-action pair
-            action = agent.choose_action(
-                observation, reward, termination, truncation, info
-            )
+        agent_mapping = {
+            main_agent.player_name: (main_agent, "main_agent"),
+            opponent.player_name: (opponent, "opponent")
+        }
+        
+        # Run single episode
+        episode_rewards = {"main_agent": 0, "opponent": 0}
+        step_count = 0
+        episode_active = True
+        
+        # Track current state for experience replay
+        current_states = {agent_id: None for agent_id in env.possible_agents}
+        current_actions = {agent_id: None for agent_id in env.possible_agents}
+        
+        for agent_id in env.agent_iter():
+            observation, reward, termination, truncation, info = env.last()
+            agent, agent_name = agent_mapping[agent_id]
+            episode_rewards[agent_name] += reward
+            
+            # Get the done flag
+            done = termination or truncation
+            
             if agent_name == "main_agent":
-                current_states[agent_id] = observation
-                current_actions[agent_id] = action
-        
-        env.step(action)
-        step_count += 1
-        
-        if not episode_active or step_count >= max_cycles:
-            # Handle final state for the episode if it ended due to max_cycles
-            if agent_name == "main_agent" and current_states[agent_id] is not None:
-                main_agent.learn(
-                    state=current_states[agent_id],
-                    action=current_actions[agent_id],
-                    reward=reward,
-                    next_state=observation,
-                    done=True
+                # Store the previous state-action pair's results if they exist
+                if current_states[agent_id] is not None:
+                    main_agent.learn(
+                        state=current_states[agent_id],
+                        action=current_actions[agent_id],
+                        reward=reward,
+                        next_state=observation,
+                        done=done
+                    )
+            
+            if done:
+                action = None
+                episode_active = False
+            else:
+                # Choose and store current state-action pair
+                action = agent.choose_action(
+                    observation, reward, termination, truncation, info
                 )
-            break
+                if agent_name == "main_agent":
+                    current_states[agent_id] = observation
+                    current_actions[agent_id] = action
+            
+            env.step(action)
+            step_count += 1
+            
+            if not episode_active or step_count >= max_cycles:
+                # Handle final state for the episode if it ended due to max_cycles
+                if agent_name == "main_agent" and current_states[agent_id] is not None:
+                    main_agent.learn(
+                        state=current_states[agent_id],
+                        action=current_actions[agent_id],
+                        reward=reward,
+                        next_state=observation,
+                        done=True
+                    )
+                break
         
         # Record episode results
         main_score = episode_rewards["main_agent"]
