@@ -136,25 +136,54 @@ def train_sequential(
         step_count = 0
         episode_active = True
         
+        # Track current state for experience replay
+        current_states = {agent_id: None for agent_id in env.possible_agents}
+        current_actions = {agent_id: None for agent_id in env.possible_agents}
+        
         for agent_id in env.agent_iter():
             observation, reward, termination, truncation, info = env.last()
             agent, agent_name = agent_mapping[agent_id]
             episode_rewards[agent_name] += reward
             
-            if termination or truncation:
+            # Get the done flag
+            done = termination or truncation
+            
+            if agent_name == "main_agent":
+                # Store the previous state-action pair's results if they exist
+                if current_states[agent_id] is not None:
+                    main_agent.learn(
+                        state=current_states[agent_id],
+                        action=current_actions[agent_id],
+                        reward=reward,
+                        next_state=observation,
+                        done=done
+                    )
+            
+            if done:
                 action = None
                 episode_active = False
             else:
+                # Choose and store current state-action pair
                 action = agent.choose_action(
                     observation, reward, termination, truncation, info
                 )
                 if agent_name == "main_agent":
-                    agent.learn()
+                    current_states[agent_id] = observation
+                    current_actions[agent_id] = action
             
             env.step(action)
             step_count += 1
             
             if not episode_active or step_count >= max_cycles:
+                # Handle final state for the episode if it ended due to max_cycles
+                if agent_name == "main_agent" and current_states[agent_id] is not None:
+                    main_agent.learn(
+                        state=current_states[agent_id],
+                        action=current_actions[agent_id],
+                        reward=reward,
+                        next_state=observation,
+                        done=True
+                    )
                 break
         
         # Record episode results
